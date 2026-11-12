@@ -18,6 +18,28 @@ interface:
   agents: true
 
 endpoints:
+  # Free / low-cost providers (OpenAI-compatible). Keys come from .env.
+  # Leave a key blank in .env to hide that provider.
+  custom:
+    - name: 'Groq'
+      apiKey: '${GROQ_API_KEY}'
+      baseURL: 'https://api.groq.com/openai/v1'
+      models:
+        default: ['llama-3.3-70b-versatile']
+        fetch: true
+      titleConvo: true
+      titleModel: 'llama-3.1-8b-instant'
+      modelDisplayLabel: 'Groq (free)'
+    - name: 'OpenRouter'
+      apiKey: '${OPENROUTER_KEY}'
+      baseURL: 'https://openrouter.ai/api/v1'
+      models:
+        default: ['meta-llama/llama-3.3-70b-instruct:free', 'deepseek/deepseek-chat-v3-0324:free']
+        fetch: true
+      titleConvo: true
+      titleModel: 'meta-llama/llama-3.3-70b-instruct:free'
+      modelDisplayLabel: 'OpenRouter'
+
   # Agents framework (per-user/agent tools + MCP) — the "Agentic" capability.
   # AI providers (Anthropic / OpenAI) are enabled via API keys in .env.
   agents:

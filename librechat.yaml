@@ -1,35 +1,155 @@
 version: 1.3.18
 cache: true
 
-# --- Token/credit quota (MegaBot-style) ---
-# Each user gets a credit allotment; API-backed models spend it.
-# For "unlimited on local model", give a generous startBalance (local use is cheap)
-# or disable balance entirely. Admins can top up per user from the Admin Panel.
+# =============================================================================
+#  Mega AI — Mega Trust Group internal AI platform (built on LibreChat)
+#
+#  Everything here can be edited live from the Admin Panel → Configuration,
+#  including API keys (stored ENCRYPTED in the database — no .env editing needed).
+#
+#  Access tiers are Admin Panel role overrides (see docs/ROLES.md):
+#    USER (default)  ⏳ Pending activation — sees only the "pending" assistant
+#    CHAT_MEDIA      💬 chat + Arabic voice + images/video, free models
+#    CODER           💻 + agents, code execution, GitHub, Claude
+#    POWER           ⭐ everything
+# =============================================================================
+
+# --- Credits: 1,000,000 credits = 1 USD. Free models are priced 0 (tokenConfig),
+#     so they never consume a user's balance. Paid models use real prices.
 balance:
   enabled: true
-  startBalance: 1000000
-  autoRefillEnabled: false
+  startBalance: 1000000          # default credits granted at sign-up (usable after activation)
+  autoRefillEnabled: false       # each tier's daily refill is a role override
   display: 'credits'
 
-# Controlled pilot: only admins create accounts (registration is also gated by .env)
 interface:
+  customWelcome: 'أهلًا {{user.name}} 👋 مرحبًا بك في Mega AI — مساعد Mega Trust الذكي'
   modelSelect: true
   parameters: true
   agents: true
 
+# --- Voice: "read aloud" with Arabic dialect voices (free, served by mega-tools) ---
+speech:
+  tts:
+    allowedAddresses: ['mega-tools:8000']   # SSRF exemption scoped to TTS only
+    openai:
+      url: 'http://mega-tools:8000/v1/audio/speech'
+      apiKey: '${MEGA_TOOLS_KEY}'
+      model: 'edge-tts'
+      voices:
+        - 'Egyptian Female (Salma)'
+        - 'Egyptian Male (Shakir)'
+        - 'Saudi Female (Zariyah)'
+        - 'Saudi Male (Hamed)'
+        - 'Emirati Female (Fatima)'
+        - 'Emirati Male (Hamdan)'
+        - 'Kuwaiti Female (Noura)'
+        - 'Kuwaiti Male (Fahed)'
+        - 'Qatari Female (Amal)'
+        - 'Qatari Male (Moaz)'
+        - 'Bahraini Female (Laila)'
+        - 'Bahraini Male (Ali)'
+        - 'Omani Female (Aysha)'
+        - 'Omani Male (Abdullah)'
+  speechTab:
+    textToSpeech:
+      engineTTS: 'external'
+      voice: 'Egyptian Female (Salma)'
+      cacheTTS: true
+    speechToText:
+      engineSTT: 'browser'
+      languageSTT: 'ar-EG'
+
+# --- Native web search: private SearXNG (free) + Tavily scraper (free tier key,
+#     add it in Admin Panel → Configuration → Web Search). No reranker needed.
+webSearch:
+  allowedAddresses: ['searxng:8080']        # SSRF exemption scoped to web search only
+  searchProvider: 'searxng'
+  searxngInstanceUrl: 'http://searxng:8080'
+  scraperProvider: 'tavily'
+  tavilyApiKey: '${TAVILY_API_KEY}'
+  rerankerType: 'none'
+
+# --- SSRF policy: keep the default protection (private addresses blocked, public
+#     MCP servers allowed) and exempt ONLY our internal tools service, by host:port.
+mcpSettings:
+  allowedAddresses:
+    - 'mega-tools:8000'
+
+# --- MCP tool servers (remote/HTTP, so they are manageable from the Admin Panel) ---
+mcpServers:
+  mega-tools:
+    type: streamable-http
+    requiresOAuth: false   # static key/token auth, not OAuth
+    url: 'http://mega-tools:8000/mcp'
+    title: 'Mega Tools - صوت عربي وبحث'
+    description: 'تعليق صوتي باللهجات (مصري، سعودي، خليجي…) + بحث الويب وقراءة الصفحات — مجاني'
+    headers:
+      Authorization: 'Bearer ${MEGA_TOOLS_KEY}'
+    serverInstructions: true
+    timeout: 180000
+    chatMenu: true
+  fal-ai:
+    type: streamable-http
+    requiresOAuth: false   # static key/token auth, not OAuth
+    url: 'https://mcp.fal.ai/mcp'
+    title: 'Fal AI - صور وفيديو'
+    description: 'توليد صور وفيديو بالذكاء الاصطناعي (Veo · Kling · Sora · Flux …). يحتاج مفتاح fal.ai من لوحة الإدارة.'
+    headers:
+      Authorization: 'Bearer ${FAL_KEY}'
+    startup: false
+    timeout: 600000
+    chatMenu: true
+  github:
+    type: streamable-http
+    requiresOAuth: false   # static key/token auth, not OAuth
+    url: 'https://api.githubcopilot.com/mcp/'
+    title: 'GitHub'
+    description: 'الوصول إلى مستودعات GitHub (للمبرمجين). كل مستخدم يضيف توكنه الخاص.'
+    headers:
+      Authorization: 'Bearer {{GITHUB_PAT}}'
+    customUserVars:
+      GITHUB_PAT:
+        title: 'GitHub Personal Access Token'
+        description: 'أنشئه من GitHub → Settings → Developer settings → Personal access tokens'
+    startup: false
+    chatMenu: true
+
 endpoints:
-  # Free / low-cost providers (OpenAI-compatible). Keys come from .env.
-  # Leave a key blank in .env to hide that provider.
+  # Every provider is a custom endpoint so its key can be entered (encrypted)
+  # from the Admin Panel. Free models are priced 0 → they never use credits.
   custom:
     - name: 'Groq'
       apiKey: '${GROQ_API_KEY}'
       baseURL: 'https://api.groq.com/openai/v1'
       models:
-        default: ['llama-3.3-70b-versatile']
+        default: ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'qwen/qwen3-32b', 'llama-3.1-8b-instant']
         fetch: true
       titleConvo: true
       titleModel: 'llama-3.1-8b-instant'
-      modelDisplayLabel: 'Groq (free)'
+      modelDisplayLabel: 'Groq'
+      tokenConfig:
+        'llama-3.3-70b-versatile': { prompt: 0, completion: 0, context: 131072 }
+        'llama-3.1-8b-instant': { prompt: 0, completion: 0, context: 131072 }
+        'openai/gpt-oss-120b': { prompt: 0, completion: 0, context: 131072 }
+        'openai/gpt-oss-20b': { prompt: 0, completion: 0, context: 131072 }
+        'qwen/qwen3-32b': { prompt: 0, completion: 0, context: 131072 }
+
+    - name: 'Gemini'
+      apiKey: '${GEMINI_API_KEY}'
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+      models:
+        default: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro']
+        fetch: true
+      titleConvo: true
+      titleModel: 'gemini-2.5-flash-lite'
+      modelDisplayLabel: 'Gemini'
+      dropParams: ['user', 'frequency_penalty', 'presence_penalty']
+      tokenConfig:
+        'gemini-2.5-flash': { prompt: 0, completion: 0, context: 1048576 }
+        'gemini-2.5-flash-lite': { prompt: 0, completion: 0, context: 1048576 }
+        'gemini-2.0-flash': { prompt: 0, completion: 0, context: 1048576 }
+
     - name: 'OpenRouter'
       apiKey: '${OPENROUTER_KEY}'
       baseURL: 'https://openrouter.ai/api/v1'
@@ -39,9 +159,22 @@ endpoints:
       titleConvo: true
       titleModel: 'meta-llama/llama-3.3-70b-instruct:free'
       modelDisplayLabel: 'OpenRouter'
+      tokenConfig:
+        'meta-llama/llama-3.3-70b-instruct:free': { prompt: 0, completion: 0, context: 131072 }
+        'deepseek/deepseek-chat-v3-0324:free': { prompt: 0, completion: 0, context: 131072 }
+
+    - name: 'Claude'
+      apiKey: '${CLAUDE_API_KEY}'
+      baseURL: 'https://api.anthropic.com/v1/'
+      models:
+        default: ['claude-sonnet-5-5', 'claude-opus-5', 'claude-haiku-5-5']
+        fetch: false
+      titleConvo: true
+      titleModel: 'claude-haiku-5-5'
+      modelDisplayLabel: 'Claude'
+      # No tokenConfig: billed at Claude's real prices from LibreChat's tables.
 
   # Agents framework (per-user/agent tools + MCP) — the "Agentic" capability.
-  # AI providers (Anthropic / OpenAI) are enabled via API keys in .env.
   agents:
     recursionLimit: 25
     maxRecursionLimit: 50

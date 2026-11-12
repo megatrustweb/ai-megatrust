@@ -1,5 +1,7 @@
 # Mega AI — Caddy reverse proxy with automatic HTTPS (Let's Encrypt)
 # SITE_DOMAIN and ACME_EMAIL come from .env
+# LibreChat trusts this single proxy hop (TRUST_PROXY=1) to read the real client IP
+# from X-Forwarded-For — so abuse bans hit only the offending user, not everyone.
 
 {
 	email {$ACME_EMAIL}
@@ -7,5 +9,13 @@
 
 {$SITE_DOMAIN:ai.megatrust.net} {
 	encode zstd gzip
-	reverse_proxy api:3080
+
+	# Generated Arabic voice-overs (random, expiring file names) — served by mega-tools.
+	handle /media/* {
+		reverse_proxy mega-tools:8000
+	}
+
+	handle {
+		reverse_proxy api:3080
+	}
 }

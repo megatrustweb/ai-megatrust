@@ -1,0 +1,23 @@
+# SearXNG — private metasearch for Mega AI (free web search, no API key).
+# Internal only: reached by LibreChat and mega-tools over the Docker network.
+use_default_settings: true
+
+general:
+  instance_name: "Mega AI Search"
+
+server:
+  # Overridden at runtime by the SEARXNG_SECRET environment variable.
+  secret_key: "change-me-via-SEARXNG_SECRET"
+  limiter: false
+  image_proxy: false
+  public_instance: false
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+ui:
+  default_locale: ""

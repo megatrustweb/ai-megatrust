@@ -18,19 +18,8 @@ interface:
   agents: true
 
 endpoints:
-  # Local model via Ollama (OpenAI-compatible). No external cost.
-  custom:
-    - name: 'Ollama (Local)'
-      apiKey: 'ollama'
-      baseURL: 'http://host.docker.internal:11434/v1'
-      models:
-        default: ['qwen3-agent:latest']
-        fetch: true
-      titleConvo: true
-      titleModel: 'qwen3-agent:latest'
-      modelDisplayLabel: 'Ollama'
-
-  # Agents framework (per-user/agent tools + MCP) — the "Agentic" capability
+  # Agents framework (per-user/agent tools + MCP) — the "Agentic" capability.
+  # AI providers (Anthropic / OpenAI) are enabled via API keys in .env.
   agents:
     recursionLimit: 25
     maxRecursionLimit: 50
@@ -42,9 +31,3 @@ endpoints:
       - 'artifacts'
       - 'ocr'
       - 'web_search'
-
-# SSRF exemption so the container may reach the host's Ollama
-actions:
-  allowedDomains:
-    - 'host.docker.internal'
-    - 'localhost'

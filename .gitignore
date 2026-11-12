@@ -1,0 +1,17 @@
+# Secrets & local state — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Runtime data (named volumes live in Docker, but ignore any stray local dirs)
+data/
+data-node/
+meili_data*/
+logs/
+uploads/
+images/
+*.log
+
+# OS / editor
+.DS_Store
+*.swp

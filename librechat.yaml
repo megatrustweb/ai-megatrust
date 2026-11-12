@@ -1,0 +1,50 @@
+version: 1.3.18
+cache: true
+
+# --- Token/credit quota (MegaBot-style) ---
+# Each user gets a credit allotment; API-backed models spend it.
+# For "unlimited on local model", give a generous startBalance (local use is cheap)
+# or disable balance entirely. Admins can top up per user from the Admin Panel.
+balance:
+  enabled: true
+  startBalance: 1000000
+  autoRefillEnabled: false
+  display: 'credits'
+
+# Controlled pilot: only admins create accounts (registration is also gated by .env)
+interface:
+  modelSelect: true
+  parameters: true
+  agents: true
+
+endpoints:
+  # Local model via Ollama (OpenAI-compatible). No external cost.
+  custom:
+    - name: 'Ollama (Local)'
+      apiKey: 'ollama'
+      baseURL: 'http://host.docker.internal:11434/v1'
+      models:
+        default: ['qwen3-agent:latest']
+        fetch: true
+      titleConvo: true
+      titleModel: 'qwen3-agent:latest'
+      modelDisplayLabel: 'Ollama'
+
+  # Agents framework (per-user/agent tools + MCP) — the "Agentic" capability
+  agents:
+    recursionLimit: 25
+    maxRecursionLimit: 50
+    capabilities:
+      - 'execute_code'
+      - 'file_search'
+      - 'actions'
+      - 'tools'
+      - 'artifacts'
+      - 'ocr'
+      - 'web_search'
+
+# SSRF exemption so the container may reach the host's Ollama
+actions:
+  allowedDomains:
+    - 'host.docker.internal'
+    - 'localhost'

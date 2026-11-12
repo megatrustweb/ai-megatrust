@@ -1,0 +1,115 @@
+# Mega AI — production stack for ai.megatrust.net
+# LibreChat (branded "Mega AI") + MongoDB + Meilisearch + pgvector + RAG, fronted by Caddy (auto-HTTPS).
+# Only Caddy is published to the internet (80/443). Everything else is internal.
+# Bring up with ./setup.sh (generates secrets) then `docker compose up -d`.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: mega-ai-caddy
+    restart: always
+    env_file: [.env]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+
+  api:
+    image: registry.librechat.ai/librechat-ai/librechat-dev:latest
+    container_name: mega-ai
+    restart: always
+    user: "0:0"
+    env_file: [.env]
+    environment:
+      - HOST=0.0.0.0
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MEILI_HOST=http://meilisearch:7700
+      - RAG_PORT=8000
+      - RAG_API_URL=http://rag_api:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: [mongodb, rag_api]
+    volumes:
+      - librechat_data:/app/data
+      - app_logs:/app/logs
+      - app_uploads:/app/uploads
+      - app_images:/app/client/public/images
+      - ./librechat.yaml:/app/librechat.yaml:ro
+      - ./brand/index.html:/app/client/dist/index.html:ro
+      - ./brand/logo.svg:/app/client/dist/assets/logo.svg:ro
+      - ./brand/favicon-16x16.png:/app/client/dist/assets/favicon-16x16.png:ro
+      - ./brand/favicon-32x32.png:/app/client/dist/assets/favicon-32x32.png:ro
+      - ./brand/apple-touch-icon-180x180.png:/app/client/dist/assets/apple-touch-icon-180x180.png:ro
+      - ./brand/icon-192x192.png:/app/client/dist/assets/icon-192x192.png:ro
+      - ./brand/maskable-icon.png:/app/client/dist/assets/maskable-icon.png:ro
+
+  # Admin console (users / balances / model access). Internal only — reach via SSH tunnel:
+  #   ssh -L 3000:localhost:3000 user@server   then open http://localhost:3000
+  admin-panel:
+    image: registry.librechat.ai/librechat-ai/librechat-admin-panel:latest
+    container_name: mega-ai-admin
+    restart: always
+    environment:
+      - PORT=3000
+      - SESSION_SECRET=${ADMIN_PANEL_SESSION_SECRET}
+      - API_SERVER_URL=http://api:3080
+      - VITE_API_BASE_URL=${DOMAIN_CLIENT}
+      - SESSION_COOKIE_SECURE=false
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on: [api]
+
+  mongodb:
+    image: mongo:8.0.20
+    container_name: mega-ai-mongo
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+    command: mongod --noauth
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.35.1
+    container_name: mega-ai-meili
+    restart: always
+    environment:
+      - MEILI_HOST=http://meilisearch:7700
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
+    volumes:
+      - meili_data:/meili_data
+
+  vectordb:
+    image: pgvector/pgvector:0.8.0-pg15-trixie
+    container_name: mega-ai-vectordb
+    restart: always
+    environment:
+      - POSTGRES_DB=mydatabase
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mypassword}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  rag_api:
+    image: registry.librechat.ai/librechat-ai/librechat-rag-api-dev-lite:latest
+    container_name: mega-ai-rag
+    restart: always
+    environment:
+      - DB_HOST=vectordb
+      - RAG_PORT=8000
+    env_file: [.env]
+    depends_on: [vectordb]
+
+volumes:
+  librechat_data:
+  app_logs:
+  app_uploads:
+  app_images:
+  mongo_data:
+  meili_data:
+  pgdata:
+  caddy_data:
+  caddy_config:

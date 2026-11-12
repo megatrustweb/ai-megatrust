@@ -1,0 +1,11 @@
+# Mega AI — Caddy reverse proxy with automatic HTTPS (Let's Encrypt)
+# SITE_DOMAIN and ACME_EMAIL come from .env
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_DOMAIN:ai.megatrust.net} {
+	encode zstd gzip
+	reverse_proxy api:3080
+}
